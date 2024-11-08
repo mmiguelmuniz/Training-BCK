@@ -1,23 +1,33 @@
 import express from 'express';
-import bodyParser from 'body-parser';
 import scheduleRoutes from './routes/schedulesRoutes.js';
+import db from './config/firebaseConfig.js';
+import cors from 'cors'; // Importando corretamente o cors
 
 const app = express();
-const port = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Middleware para processar o body das requisições
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+// Configurações do middleware
+app.use(cors()); // Permite CORS
+app.use(express.json()); // Para processar JSON no body das requisições
+app.use(express.urlencoded({ extended: true })); // Para processar dados URL-encoded
 
-// Usar as rotas de agendamento
-app.use(scheduleRoutes);
+app.use('/api', scheduleRoutes);
 
-// Rota de teste para verificar se o servidor está rodando
 app.get('/', (req, res) => {
-  res.send('A aplicação está funcionando! Esta é apenas uma versão para testes.');
+  res.send('Appointments are ongoing!');
+});
+
+app.get('/schedules', async (req, res) => {
+  try {
+    const schedulesSnapshot = await db.collection('schedules').get();
+    const schedules = schedulesSnapshot.docs.map(doc => doc.data());
+    res.json(schedules);
+  } catch (error) {
+    res.status(500).send('Error when searching for appointments.');
+  }
 });
 
 // Iniciar o servidor
-app.listen(port, () => {
-  console.log(`Servidor rodando em http://localhost:${port}`);
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`); 
 });

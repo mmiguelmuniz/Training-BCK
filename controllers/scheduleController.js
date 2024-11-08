@@ -1,83 +1,111 @@
-import { saveSchedule } from '../models/scheduleModel.js';
+import {
+  saveSchedule as modelSaveSchedule,
+  getAllSchedules as modelGetAllSchedules,
+  getScheduleById as modelGetScheduleById,
+  updateSchedule as modelUpdateSchedule,
+  deleteSchedule as modelDeleteSchedule
+} from '../models/scheduleModel.js';
 
-export const createSchedule = (req, res) => {
+// ajeitando a hora
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day}-${month}-${year} T ${hours}:${minutes}`;
+};
+
+
+export const createSchedule = async (req, res) => {
   const { name, email, department, course, suggestedDateTime, describe } = req.body;
 
-  // Validar se os dados foram preenchidos
   if (!name || !email || !course || !suggestedDateTime) {
-    return res.status(400).json({ message: 'Preencha todos os campos obrigatórios!' });
+    return res.status(400).json({ message: 'Fill in all mandatory fields!' });
   }
 
-  // Chama o modelo para salvar os dados
-  const newSchedule = saveSchedule({ name, email, department, course, suggestedDateTime, describe });
+  try {
+    const newSchedule = await modelSaveSchedule({name, email, department, course, suggestedDateTime, describe});
+    
+    const formattedDateTime  = formatDate(suggestedDateTime);
 
-  // Retorna uma resposta ao usuário
-  res.status(201).json({
-    message: 'Agendamento criado com sucesso!',
-    data: newSchedule
-  });
-
-
-// Adefinimos uma estrutura básica de agendamento.
-// será uma lista em memória.
-
-let schedules = [];
-
-// Função para criar um novo agendamento
-
-const createSchedule = (schedule) => {
-    const newSchedule = {
-        id: schedules.length + 1,
-        name: schedule.name,
-        email: schedule.email,
-        department: schedule.department,
-        course: schedule.course,
-        suggestedDateTime: schedule.suggestedDateTime,
-        description: schedule.description,
+    const mailOptions = {
+      from: 'miguel.muniz@ear.com.br',
+      to: email,
+      subject: 'Agendamento Confirmado',
+      text: `Olá ${name},\n\nSeu agendamento para o curso "${course}" foi confirmado para ${formattedDateTime}.\n\nDescrição: ${describe}\n\nAtenciosamente,\n\nIT Team.`
     };
-    schedules.push(newSchedule);
-    return newSchedule;
+
+    await sendEmail(mailOptions)
+    
+    res.status(201).json({
+      message: 'Schedule created successfully!',
+      data: newSchedule
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating schedule', error });
+  }
 };
 
-// Função para listar todos os agendamentos
-const getAllSchedules = () => {
-    return schedules;
+export const getAllSchedules = async (req, res) => {
+  try {
+    const schedules = await modelGetAllSchedules();
+    res.status(200).json(schedules);
+  } catch (error) {
+    res.status(500).json({ message: 'Error retrieving schedules', error });
+  }
 };
 
+export const getScheduleById = async (req, res) => {
+  const { id } = req.params;
 
-// parseInt = converte string em um numero inteiro. 
-// Função para encontrar um agendamento pelo ID.
-
-const getScheduleById = (id) => {
-    return schedules.find((schedule) => schedule.id === parseInt(id));
-};
-
-// Função para atualizar um agendamento existente
-const updateSchedule = (id, updatedSchedule) => {
-    const index = schedules.findIndex((schedule) => schedule.id === parseInt(id));
-    if (index !== -1) {
-        schedules[index] = { ...schedules[index], ...updatedSchedule };
-        return schedules[index];
+  try {
+    const schedule = await modelGetScheduleById(id);
+    if (schedule) {
+      res.status(200).json(schedule);
+    } else {
+      res.status(404).json({ message: 'Schedule not found' });
     }
-    return null;
+  } catch (error) {
+    res.status(500).json({ message: 'Error retrieving schedule', error });
+  }
 };
 
-// Função para deletar 
-const deleteSchedule = (id) => {
-    const index = schedules.findIndex((schedule) => schedule.id === parseInt(id));
-    if (index !== -1) {
-        const deletedSchedule = schedules.splice(index, 1);
-        return deletedSchedule[0];
+export const updateSchedule = async (req, res) => {
+  const { id } = req.params;
+  const updatedData = req.body;
+
+  try {
+    const updatedSchedule = await modelUpdateSchedule(id, updatedData);
+    if (updatedSchedule) {
+      res.status(200).json({
+        message: 'Schedule updated successfully!',
+        data: updatedSchedule
+      });
+    } else {
+      res.status(404).json({ message: 'Schedule not found' });
     }
-    return null;
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating schedule', error });
+  }
 };
 
-module.exports = {
-    createSchedule,
-    getAllSchedules,
-    getScheduleById,
-    updateSchedule,
-    deleteSchedule,
-};
 
+export const deleteSchedule = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const deletedSchedule = await modelDeleteSchedule(id);
+    if (deletedSchedule) {
+      res.status(200).json({
+        message: 'Schedule deleted successfully!',
+        data: deletedSchedule
+      });
+    } else {
+      res.status(404).json({ message: 'Schedule not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting schedule', error });
+  }
 };
